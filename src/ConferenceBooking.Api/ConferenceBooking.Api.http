@@ -1,0 +1,160 @@
+### Conference Booking API — приклади запитів
+### Виконуються згори вниз: ідентифікатори підставляються з попередніх відповідей.
+
+@host = http://localhost:5199
+@adminKey = admin-demo-key-3f9a2c
+@clientKey = client-demo-key-8b1e57
+
+### Стан сервісу (єдиний метод без ключа)
+GET {{host}}/health
+
+### ─────────────────────────────── ЗАЛИ ───────────────────────────────
+
+### Перелік залів
+# @name rooms
+GET {{host}}/api/rooms
+X-Api-Key: {{clientKey}}
+
+@roomId = {{rooms.response.body.$[0].id}}
+@amenityId = {{rooms.response.body.$[0].amenities[0].amenityId}}
+
+### 1. Додавання конференц-залу
+POST {{host}}/api/rooms
+X-Api-Key: {{adminKey}}
+Content-Type: application/json
+
+{
+  "name": "Зал D",
+  "capacity": 20,
+  "basePricePerHour": 1200,
+  "amenities": [
+    { "name": "Проєктор", "price": 500 },
+    { "name": "Фліпчарт", "price": 150 }
+  ]
+}
+
+### 2. Редагування залу — змінюється лише вказане поле
+PATCH {{host}}/api/rooms/{{roomId}}
+X-Api-Key: {{adminKey}}
+Content-Type: application/json
+
+{
+  "basePricePerHour": 2500
+}
+
+### 2а. Додавання окремої послуги (решта послуг залу не змінюється)
+POST {{host}}/api/rooms/{{roomId}}/amenities
+X-Api-Key: {{adminKey}}
+Content-Type: application/json
+
+{
+  "name": "Звук",
+  "price": 700
+}
+
+### 2б. Прибрати послугу із залу
+DELETE {{host}}/api/rooms/{{roomId}}/amenities/{{amenityId}}
+X-Api-Key: {{adminKey}}
+
+### 3. Видалення конференц-залу (заборонено, якщо є активні броні)
+DELETE {{host}}/api/rooms/{{roomId}}
+X-Api-Key: {{adminKey}}
+
+### ───────────────────────────── БРОНЮВАННЯ ─────────────────────────────
+
+### 4. Пошук доступних залів
+GET {{host}}/api/bookings/available-rooms?date=2026-09-04&startTime=10:00&endTime=14:00&capacity=50
+X-Api-Key: {{clientKey}}
+
+### Попередній розрахунок вартості без бронювання
+POST {{host}}/api/bookings/quote
+X-Api-Key: {{clientKey}}
+Content-Type: application/json
+
+{
+  "roomId": "{{roomId}}",
+  "date": "2026-09-04",
+  "startTime": "10:00",
+  "durationMinutes": 240,
+  "amenityIds": ["{{amenityId}}"]
+}
+
+### 5. Бронювання залу
+# @name booking
+POST {{host}}/api/bookings
+X-Api-Key: {{clientKey}}
+Content-Type: application/json
+
+{
+  "roomId": "{{roomId}}",
+  "date": "2026-09-04",
+  "startTime": "10:00",
+  "durationMinutes": 240,
+  "attendees": 45,
+  "customerName": "ТОВ «Приклад»",
+  "customerEmail": "office@example.com",
+  "amenityIds": ["{{amenityId}}"]
+}
+
+@bookingId = {{booking.response.body.id}}
+
+### Бронювання за ідентифікатором
+GET {{host}}/api/bookings/{{bookingId}}
+X-Api-Key: {{clientKey}}
+
+### Скасування бронювання
+DELETE {{host}}/api/bookings/{{bookingId}}
+X-Api-Key: {{clientKey}}
+
+### ─────────────────────────────── ЗВІТИ ───────────────────────────────
+
+### Зведені показники
+GET {{host}}/api/reports/summary?from=2026-09-01&to=2026-09-30
+X-Api-Key: {{adminKey}}
+
+### Завантаженість залів
+GET {{host}}/api/reports/room-utilization?from=2026-09-01&to=2026-09-30
+X-Api-Key: {{adminKey}}
+
+### Динаміка виторгу (Day | Week | Month)
+GET {{host}}/api/reports/revenue?from=2026-09-01&to=2026-09-30&granularity=Week
+X-Api-Key: {{adminKey}}
+
+### Попит на послуги
+GET {{host}}/api/reports/amenity-demand?from=2026-09-01&to=2026-09-30
+X-Api-Key: {{adminKey}}
+
+### Завантаженість за годинами доби
+GET {{host}}/api/reports/hourly-load?from=2026-09-01&to=2026-09-30
+X-Api-Key: {{adminKey}}
+
+### Ефективність тарифної сітки
+GET {{host}}/api/reports/pricing-bands?from=2026-09-01&to=2026-09-30
+X-Api-Key: {{adminKey}}
+
+### ────────────────────────── ПЕРЕВІРКА ЗАХИСТУ ──────────────────────────
+
+### Без ключа => 401
+GET {{host}}/api/rooms
+
+### Ключем клієнта на адміністративний метод => 403
+POST {{host}}/api/rooms
+X-Api-Key: {{clientKey}}
+Content-Type: application/json
+
+{ "name": "Заборонено", "capacity": 10, "basePricePerHour": 100 }
+
+### Поза робочими годинами (06:00–23:00) => 422
+POST {{host}}/api/bookings
+X-Api-Key: {{clientKey}}
+Content-Type: application/json
+
+{
+  "roomId": "{{roomId}}",
+  "date": "2026-09-04",
+  "startTime": "02:00",
+  "durationMinutes": 120,
+  "attendees": 10,
+  "customerName": "Вночі",
+  "customerEmail": "office@example.com"
+}
