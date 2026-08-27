@@ -1,0 +1,26 @@
+# Артефакти збірки
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+TestResults/
+
+# Файли БД SQLite — база відтворюється міграціями та сідингом
+*.db
+*.db-shm
+*.db-wal
+
+# Локальні налаштування розробника (можуть містити реальні ключі)
+appsettings.Local.json
+appsettings.*.Local.json
+*.user
+
+# Середовища розробки
+.vs/
+.vscode/
+.idea/
+
+# Операційна система
+Thumbs.db
+.DS_Store
